@@ -1,0 +1,17 @@
+---
+- name: 'Start from scratch and DELETE EVERYTHING'
+  hosts: 'localhost'
+  gather_facts: 'no'
+  become: 'false'
+
+  tasks:
+
+    - name: 'Delete all the files'
+      file:
+        path: "{{ item }}"
+        state: 'absent'
+      loop:
+        - '../k3sup_installation.sh'
+        - '../kubeconfig_k3s_kubevip_via_k3sup.yaml'
+        - '../ssh_key_k3s_kubevip_via_k3sup'
+        - '../ssh_key_k3s_kubevip_via_k3sup.pub'
