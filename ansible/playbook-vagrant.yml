@@ -1,0 +1,37 @@
+---
+- name: 'Create SSH key and shell script to deploy using k3sup'
+  hosts: 'k3sservers[-1]'
+  gather_facts: 'yes'
+  become: 'false'
+
+  tasks:
+
+    - name: 'Create a new SSH key pair'
+      openssh_keypair:
+        path: '../ssh_key_k3s_kubevip_via_k3sup'
+        type: 'ecdsa'
+        state: 'present'
+        force: 'no'
+        comment: 'k3s_kubevip_via_k3sup'
+      delegate_to: 'localhost'
+      run_once: 'true'
+
+    - name: 'Create shell script to deploy using k3sup'
+      template:
+        src: 'k3sup_installation.sh.j2'
+        dest: '../k3sup_installation.sh'
+      delegate_to: 'localhost'
+      run_once: 'true'
+
+- name: 'Add ssh public key to ~/.ssh/authorized_keys on all nodes'
+  hosts: 'all'
+  gather_facts: 'yes'
+  become: 'true'
+
+  tasks:
+
+    - name: 'Add ssh key to ~/.ssh/authorized_keys'
+      authorized_key:
+        user: "{{ ansible_user }}"
+        state: 'present'
+        key: "{{ lookup('file', '../ssh_key_k3s_kubevip_via_k3sup.pub') }}"
