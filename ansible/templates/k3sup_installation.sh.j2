@@ -1,0 +1,61 @@
+#!/bin/bash
+
+#
+# {{ ansible_managed }}
+#
+
+echo "Your server nodes are:"
+{% for host in groups['k3sservers'] %}
+echo "  {{ hostvars[host]['inventory_hostname'] }} => {{ hostvars[host]['ansible_host'] }}"
+{% endfor %}
+echo ""
+echo "Your worker node(s) are:"
+{% for host in groups['k3sagents'] %}
+echo "  {{ hostvars[host]['inventory_hostname'] }}  => {{ hostvars[host]['ansible_host'] }}"
+{% endfor %}
+echo ""
+
+echo ""
+echo "!!!!!"
+echo "Make sure to replace KUBE_VIP_GOES_HERE with an actual IP before executing this command..."
+echo "!!!!!"
+echo ""
+echo "Command to install the first server is:"
+cat <<EOF
+k3sup install \
+--host={{ hostvars[groups['k3sservers'][0]]['ansible_host'] }} \
+--user={{ hostvars[groups['k3sservers'][0]]['ansible_user'] }} \
+--ssh-key ./ssh_key_k3s_kubevip_via_k3sup \
+--local-path=kubeconfig_k3s_kubevip_via_k3sup.yaml \
+--context k3s_kubevip_via_k3sup \
+--tls-san KUBE_VIP_GOES_HERE \
+--cluster \
+--k3s-extra-args="--disable servicelb --node-taint node-role.kubernetes.io/master=true:NoSchedule" || exit 1
+EOF
+echo ""
+echo "Command to install the other server nodes is:"
+cat <<EOF
+{% for additional_server in groups['k3sservers']%}
+{% if hostvars[additional_server]['ansible_host'] != hostvars[groups['k3sservers'][0]]['ansible_host']  %}
+k3sup join \
+--host={{ hostvars[additional_server]['ansible_host'] }} \
+--user={{ hostvars[additional_server]['ansible_user'] }} \
+--ssh-key ./ssh_key_k3s_kubevip_via_k3sup \
+--server \
+--k3s-extra-args="--node-taint node-role.kubernetes.io/master=true:NoSchedule" \
+--server-ip KUBE_VIP_GOES_HERE || exit 3
+{% endif %}
+{% endfor %}
+EOF
+echo ""
+echo "Command to install agent nodes is:"
+cat <<EOF
+{% for agent in groups['k3sagents']%}
+k3sup join \
+--host={{ hostvars[agent]['ansible_host'] }} \
+--user={{ hostvars[agent]['ansible_user'] }} \
+--ssh-key ./ssh_key_k3s_kubevip_via_k3sup \
+--server-ip KUBE_VIP_GOES_HERE || exit 5
+{% endfor %}
+EOF
+echo ""
